@@ -5,3 +5,4 @@ authors = ["Michael Spencer <sonrisesoftware@gmail.com>"]
 
 [dependencies]
 nom = { version = "4.0.0", features = ["verbose-errors"] }
+itertools = "0.7.8"

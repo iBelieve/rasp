@@ -1,15 +1,6 @@
 use nom::{Needed, recognize_float, digit};
 use nom::types::CompleteStr;
-
-#[derive(Debug, PartialEq)]
-pub enum Expr {
-    Float(f64),
-    Integer(i64),
-    Boolean(bool),
-    String(String),
-    Symbol(String),
-    Sexpr(Vec<Expr>)
-}
+use expr::Expr;
 
 named!(float<CompleteStr, f64>,
        flat_map!(call!(recognize_float), parse_to!(f64)));
