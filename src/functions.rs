@@ -28,5 +28,5 @@ pub fn register(scope: &mut BTreeMap<String, Value>) {
     scope.insert("println".to_string(),
                  Value::NativeFunction("println".to_string(), println));
     scope.insert("+".to_string(),
-                 Value::NativeFunction("+".to_string(), plus));
+                 Value::NativeFunction("plus".to_string(), plus));
 }

@@ -4,7 +4,7 @@ use std::ops::Add;
 use std::rc::Rc;
 use std::fmt;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 pub enum Value {
     Float(f64),
     Integer(i64),
@@ -15,7 +15,7 @@ pub enum Value {
     Function { name: String, params: Vec<String>, expr: Expr,
                parent_scope: Rc<Scope> },
     Symbol(String),
-    Sexpr(Vec<Expr>),
+    Sexpr(Rc<Vec<Expr>>),
     Nil
 }
 
@@ -64,7 +64,7 @@ impl Value {
             NativeMacro(_name, func) => {
                 func(args, scope)
             },
-            Function { params, expr, parent_scope, .. } => {
+            Function { name: _, params, expr, parent_scope } => {
                 assert!(args.len() == params.len(), "Unexpected number of arguments");
 
                 let fn_scope = parent_scope.push();
@@ -88,8 +88,21 @@ impl fmt::Display for Value {
             Float(n) => write!(f, "{}", n),
             String(s) => write!(f, "{}", s),
             Boolean(b) => write!(f, "{}", b),
+            _ => fmt::Debug::fmt(self, f)
+        }
+    }
+}
+
+impl fmt::Debug for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Value::*;
+        match self {
+            Integer(n) => write!(f, "{:?}", n),
+            Float(n) => write!(f, "{:?}", n),
+            String(s) => write!(f, "{:?}", s),
+            Boolean(b) => write!(f, "{:?}", b),
             Symbol(s) => write!(f, "{}", s),
-            Sexpr(e) => write!(f, "{}", Expr::Sexpr(e.clone())),
+            Sexpr(e) => write!(f, "{}", Expr::Sexpr(e.to_vec())),
             Nil => write!(f, "nil"),
             Function { name, .. } => write!(f, "<function {}>", name),
             NativeFunction(name, _) => write!(f, "<function {}>", name),

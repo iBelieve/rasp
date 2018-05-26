@@ -89,7 +89,7 @@ pub fn quote(args: Vec<Expr>, scope: Rc<Scope>) -> Value {
     if let Expr::Symbol(s) = expr {
         Value::Symbol(s)
     } else if let Expr::Sexpr(s) = expr {
-        Value::Sexpr(s)
+        Value::Sexpr(Rc::new(s))
     } else {
         expr.eval(scope)
     }
