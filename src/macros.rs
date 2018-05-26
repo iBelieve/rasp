@@ -71,7 +71,8 @@ pub fn defun(args: Vec<Expr>, parent_scope: Rc<Scope>) -> Value {
         .map(|e| e.as_symbol())
         .collect();
 
-    parent_scope.set_value(name, Value::Function {
+    parent_scope.set_value(name.clone(), Value::Function {
+        name,
         params,
         expr: Expr::progn(iter.collect()),
         parent_scope: parent_scope.clone()
@@ -80,9 +81,29 @@ pub fn defun(args: Vec<Expr>, parent_scope: Rc<Scope>) -> Value {
     Value::Nil
 }
 
+pub fn quote(args: Vec<Expr>, scope: Rc<Scope>) -> Value {
+    assert!(args.len() == 1, "Expected only one argument");
+
+    let expr = args.into_iter().next().unwrap();
+
+    if let Expr::Symbol(s) = expr {
+        Value::Symbol(s)
+    } else if let Expr::Sexpr(s) = expr {
+        Value::Sexpr(s)
+    } else {
+        expr.eval(scope)
+    }
+}
+
 pub fn register(scope: &mut BTreeMap<String, Value>) {
-    scope.insert("set".to_string(), Value::NativeMacro(set));
-    scope.insert("let".to_string(), Value::NativeMacro(let_block));
-    scope.insert("defun".to_string(), Value::NativeMacro(defun));
-    scope.insert("progn".to_string(), Value::NativeMacro(progn));
+    scope.insert("set".to_string(),
+                 Value::NativeMacro("set".to_string(), set));
+    scope.insert("let".to_string(),
+                 Value::NativeMacro("let".to_string(), let_block));
+    scope.insert("defun".to_string(),
+                 Value::NativeMacro("defun".to_string(), defun));
+    scope.insert("progn".to_string(),
+                 Value::NativeMacro("progn".to_string(), progn));
+    scope.insert("quote".to_string(),
+                 Value::NativeMacro("quote".to_string(), quote));
 }

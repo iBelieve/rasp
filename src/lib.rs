@@ -3,6 +3,7 @@
 extern crate itertools;
 #[macro_use]
 extern crate nom;
+extern crate runtime_fmt;
 
 mod expr;
 mod value;

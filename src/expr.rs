@@ -1,6 +1,8 @@
 use std::rc::Rc;
+use std::fmt;
 use scope::Scope;
 use value::Value;
+use itertools::Itertools;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expr {
@@ -27,6 +29,13 @@ impl Expr {
         }
     }
 
+    pub fn as_string(self) -> String {
+        match self {
+            Expr::String(s) => s,
+            _ => panic!("Expected string, got: {:?}", self)
+        }
+    }
+
     pub fn eval(self, scope: Rc<Scope>) -> Value {
         match self {
             Expr::Integer(i) => Value::Integer(i),
@@ -50,5 +59,23 @@ impl Expr {
         let mut sexpr = vec![Expr::Symbol("progn".to_string())];
         sexpr.extend(expressions);
         Expr::Sexpr(sexpr)
+    }
+}
+
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Expr::*;
+
+        match self {
+            Integer(n) => write!(f, "{}", n),
+            Float(n) => write!(f, "{}", n),
+            String(s) => write!(f, "{:?}", s),
+            Boolean(b) => write!(f, "{:?}", b),
+            Symbol(s) => write!(f, "{}", s),
+            Sexpr(expressions) => {
+                write!(f, "({})", expressions.into_iter()
+                       .map(|e| format!("{}", e)).join(" "))
+            }
+        }
     }
 }
