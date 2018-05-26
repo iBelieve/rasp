@@ -29,7 +29,7 @@ named!(escaped_symbol<CompleteStr, String>, delimited!(
 ));
 
 named!(simple_symbol<CompleteStr, String>,
-       escaped_transform!(is_not!(" \t\n\r\\\'\"()"), '\\', take!(1)));
+       escaped_transform!(is_not!(" \t\n\r\\\"'`()#|;"), '\\', take!(1)));
 
 named!(symbol<CompleteStr, String>, alt!(escaped_symbol | simple_symbol));
 

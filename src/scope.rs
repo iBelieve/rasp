@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use value::{Value};
 use macros;
 use functions;
@@ -8,12 +8,12 @@ use functions;
 #[derive(Debug, PartialEq)]
 pub struct Scope {
     parent: Option<Rc<Scope>>,
-    variables: RefCell<BTreeMap<String, Value>>
+    variables: RefCell<HashMap<String, Value>>
 }
 
 impl Scope {
     pub fn root() -> Rc<Scope> {
-        let mut variables = BTreeMap::new();
+        let mut variables = HashMap::new();
 
         macros::register(&mut variables);
         functions::register(&mut variables);
@@ -27,12 +27,16 @@ impl Scope {
     pub fn push(self: Rc<Self>) -> Rc<Scope> {
         Rc::new(Scope {
             parent: Some(self),
-            variables: RefCell::new(BTreeMap::new())
+            variables: RefCell::new(HashMap::new())
         })
     }
 
     pub fn get_value(&self, symbol: &str) -> Value {
-        if self.variables.borrow().contains_key(symbol) {
+        if symbol == "nil" {
+            Value::Nil
+        } else if symbol.starts_with(":") {
+            Value::Symbol(symbol.to_string())
+        } else if self.variables.borrow().contains_key(symbol) {
             self.variables.borrow()[symbol].clone()
         } else if let Some(ref parent) = self.parent {
             parent.clone().get_value(symbol)

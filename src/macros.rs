@@ -1,9 +1,10 @@
 use std::rc::Rc;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use itertools::Itertools;
 use expr::Expr;
 use value::Value;
 use scope::Scope;
+use function::Function;
 
 fn progn(args: Vec<Expr>, scope: Rc<Scope>) -> Value {
     args.into_iter()
@@ -18,7 +19,7 @@ fn set(args: Vec<Expr>, scope: Rc<Scope>) -> Value {
     }
 
     for (symbol, value) in args.into_iter().tuples() {
-        scope.clone().set_value(symbol.as_symbol(),
+        scope.clone().set_value(symbol.as_symbol().expect("Expected symbol"),
                                 value.eval(scope.clone()));
     }
 
@@ -30,8 +31,8 @@ fn let_block(args: Vec<Expr>, parent_scope: Rc<Scope>) -> Value {
 
     let mut iter = args.into_iter();
     let vars = iter.next()
-        .expect("Expected variables list")
-        .as_sexpr();
+        .and_then(|e| e.as_sexpr())
+        .expect("Expected variables list");
 
     for var in vars {
         match var {
@@ -43,7 +44,8 @@ fn let_block(args: Vec<Expr>, parent_scope: Rc<Scope>) -> Value {
                         "Expected symbol or symbol and value pair");
 
                 let mut iter = var_val.into_iter();
-                let symbol = iter.next().unwrap().as_symbol();
+                let symbol = iter.next().unwrap().as_symbol()
+                    .expect("Expected symbol and value pair");
                 let value = iter.next().unwrap();
 
                 scope.clone().set_value(symbol, value.eval(parent_scope.clone()));
@@ -62,21 +64,14 @@ fn let_block(args: Vec<Expr>, parent_scope: Rc<Scope>) -> Value {
 pub fn defun(args: Vec<Expr>, parent_scope: Rc<Scope>) -> Value {
     let mut iter = args.into_iter();
     let name = iter.next()
-        .expect("Expected function name")
-        .as_symbol();
-    let params: Vec<String> = iter.next()
-        .expect("Expected parameters list")
-        .as_sexpr()
-        .into_iter()
-        .map(|e| e.as_symbol())
-        .collect();
+        .and_then(|e| e.as_symbol())
+        .expect("Expected function name");
+    let params = iter.next().expect("Expected parameter definitions");
 
-    parent_scope.set_value(name.clone(), Value::Function {
-        name,
-        params,
-        expr: Expr::progn(iter.collect()),
-        parent_scope: parent_scope.clone()
-    });
+    let function = Function::define(name.clone(), params, iter.collect(),
+                                    parent_scope.clone());
+
+    parent_scope.set_value(name, Value::Function(Rc::new(function)));
 
     Value::Nil
 }
@@ -95,7 +90,7 @@ pub fn quote(args: Vec<Expr>, scope: Rc<Scope>) -> Value {
     }
 }
 
-pub fn register(scope: &mut BTreeMap<String, Value>) {
+pub fn register(scope: &mut HashMap<String, Value>) {
     scope.insert("set".to_string(),
                  Value::NativeMacro("set".to_string(), set));
     scope.insert("let".to_string(),

@@ -16,3 +16,7 @@
 (set f (testing var))
 (set var 5)
 (f)
+
+(defun complex (a (b nil) ...rest (:d 2))
+  (println "(complex a {} b {} :d {} ... {})" a b d rest))
+(complex 2 "Hi" "Bye" 10 'or 2 :d 5)

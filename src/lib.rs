@@ -7,6 +7,7 @@ extern crate runtime_fmt;
 
 mod expr;
 mod value;
+mod function;
 mod scope;
 mod parser;
 mod macros;

@@ -15,24 +15,49 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn as_symbol(self) -> String {
-        match self {
-            Expr::Symbol(sym) => sym,
-            _ => panic!("Expected symbol, got: {:?}", self)
+    pub fn as_symbol(self) -> Option<String> {
+        if let Expr::Symbol(sym) = self {
+            Some(sym)
+        } else {
+            None
         }
     }
 
-    pub fn as_sexpr(self) -> Vec<Expr> {
-        match self {
-            Expr::Sexpr(expressions) => expressions,
-            _ => panic!("Expected sexpr, got: {:?}", self)
+    pub fn as_sexpr(self) -> Option<Vec<Expr>> {
+        if let Expr::Sexpr(expressions) = self {
+            Some(expressions)
+        } else {
+            None
         }
     }
 
-    pub fn as_string(self) -> String {
-        match self {
-            Expr::String(s) => s,
-            _ => panic!("Expected string, got: {:?}", self)
+    pub fn as_pair(self) -> Option<(Expr, Expr)> {
+        if let Expr::Sexpr(expressions) = self {
+            if expressions.len() == 2 {
+                let mut iter = expressions.into_iter();
+                return Some((iter.next().unwrap(),
+                             iter.next().unwrap()))
+            }
+        }
+
+        None
+    }
+
+    pub fn as_symbol_value_pair(self) -> Option<(String, Expr)> {
+        if let Some((left, right)) = self.as_pair() {
+            if let Some(symbol) = left.as_symbol() {
+                return Some((symbol, right));
+            }
+        }
+
+        None
+    }
+
+    pub fn as_string(self) -> Option<String> {
+        if let Expr::String(s) = self {
+            Some(s)
+        } else {
+            None
         }
     }
 

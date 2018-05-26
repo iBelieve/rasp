@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use value::{Value, Reduce};
 
 fn println(args: Vec<Value>) -> Value {
@@ -24,7 +24,7 @@ fn plus(args: Vec<Value>) -> Value {
         .expect("Expected at least one argument")
 }
 
-pub fn register(scope: &mut BTreeMap<String, Value>) {
+pub fn register(scope: &mut HashMap<String, Value>) {
     scope.insert("println".to_string(),
                  Value::NativeFunction("println".to_string(), println));
     scope.insert("+".to_string(),
