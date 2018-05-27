@@ -23,3 +23,9 @@
 
 
 (println "{}" `(echo ,var))
+
+
+(defmacro debug (var)
+  `(println "{} = {}" ',var ,var))
+
+(debug var)

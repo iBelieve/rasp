@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use itertools::Itertools;
 use value::Value;
 use scope::Scope;
-use function::Function;
+use function::{Function, Macro};
 
 fn progn(args: Vec<Rc<Value>>, scope: Rc<Scope>) -> Value {
     args.into_iter()
@@ -66,6 +66,22 @@ pub fn defun(args: Vec<Rc<Value>>, parent_scope: Rc<Scope>) -> Value {
     Value::Nil
 }
 
+pub fn defmacro(args: Vec<Rc<Value>>, parent_scope: Rc<Scope>) -> Value {
+    let mut iter = args.into_iter();
+    let name = iter.next()
+        .and_then(|e| e.as_symbol().map(|s| s.to_string()))
+        .expect("Expected macro name");
+    let params = iter.next().expect("Expected parameter definitions");
+
+    let func = Macro::define(name.clone(), &params,
+                              Rc::new(Value::list_rc(iter)),
+                              parent_scope.clone());
+
+    parent_scope.set_value(name, Value::Macro(Rc::new(func)));
+
+    Value::Nil
+}
+
 pub fn quote(args: Vec<Rc<Value>>, _scope: Rc<Scope>) -> Value {
     assert!(args.len() == 1, "Expected only one argument");
 
@@ -79,6 +95,8 @@ pub fn register(scope: &mut HashMap<String, Value>) {
                  Value::NativeMacro("let".to_string(), let_block));
     scope.insert("defun".to_string(),
                  Value::NativeMacro("defun".to_string(), defun));
+    scope.insert("defmacro".to_string(),
+                 Value::NativeMacro("defmacro".to_string(), defmacro));
     scope.insert("progn".to_string(),
                  Value::NativeMacro("progn".to_string(), progn));
     scope.insert("quote".to_string(),

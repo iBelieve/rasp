@@ -3,7 +3,7 @@ use std::ops::Add;
 use std::rc::Rc;
 use std::ops::Deref;
 use std::fmt;
-use function::Function;
+use function::{Function, Macro};
 
 #[derive(PartialEq, Clone)]
 pub enum Value {
@@ -14,6 +14,7 @@ pub enum Value {
     NativeFunction(String, fn(Vec<Value>) -> Value),
     NativeMacro(String, fn(Vec<Rc<Value>>, Rc<Scope>) -> Value),
     Function(Rc<Function>),
+    Macro(Rc<Macro>),
     Symbol(String),
     Cons(Rc<Value>, Rc<Value>),
     Nil
@@ -130,7 +131,13 @@ impl Value {
                     .map(|e| e.eval(scope))
                     .collect();
                 func.call(args)
-            }
+            },
+            Macro(func) => {
+                let args = args.iter_cons()
+                    .map(|v| v.deref().clone())
+                    .collect();
+                func.call(args).eval(scope)
+            },
             _ => panic!("Expected function")
         }
     }
@@ -234,6 +241,7 @@ impl fmt::Debug for Value {
             },
             Nil => write!(f, "nil"),
             Function(func) => write!(f, "<function {}>", func.name),
+            Macro(func) => write!(f, "<macro {}>", func.name),
             NativeFunction(name, _) => write!(f, "<function {}>", name),
             NativeMacro(name, _) => write!(f, "<macro {}>", name)
         }
