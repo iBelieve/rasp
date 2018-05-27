@@ -1,7 +1,6 @@
 use nom::{Needed, recognize_float, digit};
 use nom::types::CompleteStr;
 use expr::Expr;
-use template::Template;
 
 named!(float<CompleteStr, f64>,
        flat_map!(call!(recognize_float), parse_to!(f64)));
@@ -54,39 +53,21 @@ named!(sexpr<CompleteStr, Vec<Expr>>,
 
 named!(quote<CompleteStr, Expr>, preceded!(char!('\''), expr));
 
-named!(backquote<CompleteStr, Template>, preceded!(char!('`'), template));
+named!(backquote<CompleteStr, Expr>, preceded!(char!('`'), expr));
 
-named!(comma_list<CompleteStr, Template>, do_parse!(
+named!(comma_list<CompleteStr, Expr>, do_parse!(
     char!(',') >>
         char!('@') >>
-        value: template >>
+        value: expr >>
         (value)
 ));
 
-named!(comma<CompleteStr, Template>, do_parse!(
+named!(comma<CompleteStr, Expr>, do_parse!(
     char!(',') >>
         not!(char!('@')) >>
-        value: template >>
+        value: expr >>
         (value)
 ));
-
-named!(template_sexpr<CompleteStr, Vec<Template>>,
-       ws!(delimited!(char!('('), many0!(template), char!(')'))));
-
-named!(template_quote<CompleteStr, Template>, preceded!(char!('\''), template));
-
-named!(template<CompleteStr, Template>, alt!(
-    integer        => { |i| Template::Integer(i) } |
-    float          => { |f| Template::Float(f) } |
-    string         => { |s| Template::String(s) } |
-    template_sexpr => { |e| Template::Sexpr(e) } |
-    template_quote => { |e| Template::quote(e) } |
-    backquote      => { |e| Template::Template(Box::new(e)) } |
-    comma          => { |e| Template::TemplateExpr(Box::new(e)) } |
-    comma_list     => { |e| Template::TemplateListExpr(Box::new(e)) } |
-    symbol         => { |s| Template::Symbol(s) }
-));
-
 
 named!(expr<CompleteStr, Expr>, alt!(
     integer    => { |i| Expr::Integer(i) } |
@@ -94,9 +75,9 @@ named!(expr<CompleteStr, Expr>, alt!(
     string     => { |s| Expr::String(s) } |
     sexpr      => { |e| Expr::Sexpr(e) } |
     quote      => { |e| Expr::quote(e) } |
-    backquote  => { |t: Template| t.compile() } |
-    comma      => { |_| panic!("Comma not inside backquote") } |
-    comma_list => { |_| panic!("Comma not inside backquote") } |
+    backquote  => { |e| Expr::template(e) } |
+    comma      => { |e| Expr::TemplateExpr(Box::new(e)) } |
+    comma_list => { |e| Expr::TemplateListExpr(Box::new(e)) } |
     symbol     => { |s| Expr::Symbol(s) }
 ));
 

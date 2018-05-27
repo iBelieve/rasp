@@ -11,7 +11,9 @@ pub enum Expr {
     Boolean(bool),
     String(String),
     Symbol(String),
-    Sexpr(Vec<Expr>)
+    Sexpr(Vec<Expr>),
+    TemplateExpr(Box<Expr>),
+    TemplateListExpr(Box<Expr>)
 }
 
 impl Expr {
@@ -76,6 +78,9 @@ impl Expr {
                     .expect("Expected at least one symbol or value in sexpr");
 
                 first.call(iter.collect(), scope)
+            },
+            Expr::TemplateExpr(_) | Expr::TemplateListExpr(_) => {
+                panic!("Comma not inside backquote");
             }
         }
     }
@@ -88,6 +93,34 @@ impl Expr {
 
     pub fn quote(expr: Expr) -> Expr {
         Expr::Sexpr(vec![Expr::Symbol("quote".to_string()), expr])
+    }
+
+    pub fn template(expr: Expr) -> Expr {
+        match expr {
+            Expr::Symbol(s) => Expr::quote(Expr::Symbol(s)),
+            Expr::Sexpr(children) => {
+                let mut sexpr = vec![Expr::symbol("append")];
+
+                for child in children.into_iter() {
+                    let child = if let Expr::TemplateListExpr(e) = child {
+                        e.as_ref().clone()
+                    } else {
+                        Expr::Sexpr(vec![Expr::symbol("list"),
+                                         Expr::template(child)])
+                    };
+                    sexpr.push(child);
+                }
+
+                sexpr.push(Expr::symbol("nil"));
+
+                Expr::Sexpr(sexpr)
+            },
+            Expr::TemplateExpr(e) => e.as_ref().clone(),
+            Expr::TemplateListExpr(_) => {
+                panic!("Cannot expand list at top level of template")
+            },
+            _ => expr
+        }
     }
 
     pub fn symbol(symbol: &str) -> Expr {
@@ -113,7 +146,9 @@ impl fmt::Display for Expr {
                     write!(f, "({})", expressions.into_iter()
                            .map(|e| format!("{}", e)).join(" "))
                 }
-            }
+            },
+            Expr::TemplateExpr(e) => write!(f, ",{}", e),
+            Expr::TemplateListExpr(e) => write!(f, ",@{}", e)
         }
     }
 }
