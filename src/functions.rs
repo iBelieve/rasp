@@ -18,10 +18,18 @@ fn println(args: Vec<Value>) -> Value {
     Value::Nil
 }
 
+fn equal(args: Vec<Value>) -> Value {
+    if args.len() != 2 {
+        panic!("Expected two arguments");
+    }
+
+    Value::Boolean(args[0] == args[1])
+}
+
 fn plus(args: Vec<Value>) -> Value {
     args.into_iter()
         .reduce(|a, b| a + b)
-        .expect("Expected at least one argument")
+        .expect("Expected at least two arguments")
 }
 
 fn list(args: Vec<Value>) -> Value {
@@ -40,6 +48,8 @@ pub fn register(scope: &mut HashMap<String, Value>) {
                  Value::NativeFunction("list".to_string(), list));
     scope.insert("append".to_string(),
                  Value::NativeFunction("append".to_string(), append));
+    scope.insert("=".to_string(),
+                 Value::NativeFunction("equal".to_string(), equal));
     scope.insert("+".to_string(),
                  Value::NativeFunction("plus".to_string(), plus));
 }

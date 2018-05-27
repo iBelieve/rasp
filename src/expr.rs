@@ -6,7 +6,6 @@ use itertools::Itertools;
 pub enum Expr {
     Float(f64),
     Integer(i64),
-    Boolean(bool),
     String(String),
     Symbol(String),
     Sexpr(Vec<Expr>),
@@ -65,7 +64,6 @@ impl Expr {
         match self {
             Expr::Integer(i) => Value::Integer(i),
             Expr::Float(f) => Value::Float(f),
-            Expr::Boolean(b) => Value::Boolean(b),
             Expr::String(s) => Value::String(s),
             Expr::Symbol(sym) => Value::Symbol(sym),
             Expr::Sexpr(exprs) => {
@@ -128,7 +126,6 @@ impl fmt::Display for Expr {
             Integer(n) => write!(f, "{}", n),
             Float(n) => write!(f, "{}", n),
             String(s) => write!(f, "{:?}", s),
-            Boolean(b) => write!(f, "{:?}", b),
             Symbol(s) => write!(f, "{}", s),
             Sexpr(expressions) => {
                 if expressions.len() == 2 && expressions[0] == Expr::Symbol("quote".to_string()) {

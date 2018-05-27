@@ -28,4 +28,22 @@
 (defmacro debug (var)
   `(println "{} = {}" ',var ,var))
 
-(debug var)
+(defun nil? (value)
+  (= value nil))
+
+(defun not (condition)
+  (if condition
+      false
+    true))
+
+(defun != (a b)
+  (not (= a b)))
+
+(defmacro assert-eq (left right (msg nil))
+  (if (not (nil? msg))
+      `(if (!= ,left ,right)
+	   (println "Assert failed: {}" ,msg))
+    `(if (!= ,left ,right)
+	 (println "Assert failed: {} != {} ({} != {})" ',left ',right ,left ,right))))
+
+(assert-eq var 10)

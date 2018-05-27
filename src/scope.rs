@@ -34,6 +34,10 @@ impl Scope {
     pub fn get_value(&self, symbol: &str) -> Value {
         if symbol == "nil" {
             Value::Nil
+        } else if symbol == "true" {
+            Value::Boolean(true)
+        } else if symbol == "false" {
+            Value::Boolean(false)
         } else if symbol.starts_with(":") {
             Value::Symbol(symbol.to_string())
         } else if self.variables.borrow().contains_key(symbol) {

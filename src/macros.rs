@@ -13,6 +13,26 @@ fn progn(args: Vec<Rc<Value>>, scope: Rc<Scope>) -> Value {
         .unwrap_or(Value::Nil)
 }
 
+fn if_macro(args: Vec<Rc<Value>>, scope: Rc<Scope>) -> Value {
+    let mut iter = args.into_iter();
+    let condition = iter.next()
+        .expect("Expected if condition")
+        .eval(&scope);
+    let when_true = iter.next()
+        .expect("Expected statement to execute when true");
+    let when_false = Value::progn(Value::list_rc(iter));
+
+    if let Value::Boolean(condition) = condition {
+        if condition {
+            when_true.eval(&scope)
+        } else {
+            when_false.eval(&scope)
+        }
+    } else {
+        panic!("Expected boolean condition, got: {:?}", condition);
+    }
+}
+
 fn set(args: Vec<Rc<Value>>, scope: Rc<Scope>) -> Value {
     if args.len() % 2 != 0 {
         panic!("Uneven symbol and value pairs");
@@ -93,6 +113,8 @@ pub fn register(scope: &mut HashMap<String, Value>) {
                  Value::NativeMacro("set".to_string(), set));
     scope.insert("let".to_string(),
                  Value::NativeMacro("let".to_string(), let_block));
+    scope.insert("if".to_string(),
+                 Value::NativeMacro("if".to_string(), if_macro));
     scope.insert("defun".to_string(),
                  Value::NativeMacro("defun".to_string(), defun));
     scope.insert("defmacro".to_string(),
