@@ -10,6 +10,7 @@ mod value;
 mod function;
 mod scope;
 mod parser;
+mod template;
 mod macros;
 mod functions;
 

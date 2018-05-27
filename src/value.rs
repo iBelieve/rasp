@@ -2,9 +2,9 @@ use expr::Expr;
 use scope::Scope;
 use std::ops::Add;
 use std::rc::Rc;
+use std::ops::Deref;
 use std::fmt;
 use function::Function;
-use itertools::Itertools;
 
 #[derive(PartialEq, Clone)]
 pub enum Value {
@@ -17,11 +17,24 @@ pub enum Value {
     Function(Rc<Function>),
     Symbol(String),
     Sexpr(Rc<Vec<Expr>>),
-    List(Rc<Vec<Value>>),
+    Cons(Rc<Value>, Rc<Value>),
     Nil
 }
 
 impl Value {
+    pub fn flatten_list(&self) -> Vec<Rc<Value>> {
+        if let Value::Nil = self {
+            Vec::new()
+        } else if let Value::Cons(left, right) = self {
+            let mut list = vec![left.clone()];
+            list.extend(right.flatten_list());
+            list
+        } else {
+            panic!("Not a valid list");
+        }
+    }
+
+
     pub fn as_string(self) -> String {
         match self {
             Value::String(s) => s,
@@ -62,6 +75,22 @@ impl Value {
             _ => panic!("Expected function")
         }
     }
+
+    pub fn list(mut values: impl Iterator<Item=Value>) -> Value {
+        if let Some(value) = values.next() {
+            Value::Cons(Rc::new(value), Rc::new(Value::list(values)))
+        } else {
+            Value::Nil
+        }
+    }
+
+    pub fn list_rc(mut values: impl Iterator<Item=Rc<Value>>) -> Value {
+        if let Some(value) = values.next() {
+            Value::Cons(value, Rc::new(Value::list_rc(values)))
+        } else {
+            Value::Nil
+        }
+    }
 }
 
 impl fmt::Display for Value {
@@ -72,8 +101,25 @@ impl fmt::Display for Value {
             Float(n) => write!(f, "{}", n),
             String(s) => write!(f, "{}", s),
             Boolean(b) => write!(f, "{}", b),
-            List(values) => write!(f, "[{}]",
-                                   values.iter().map(|v| format!("{}", v)).join(" ")),
+            Cons(left, right) => {
+                write!(f, "({}", left)?;
+
+                let mut next = right.clone();
+
+                loop {
+                    if let Value::Nil = next.clone().deref() {
+                        break;
+                    } else if let Value::Cons(left, right) = next.clone().deref() {
+                        write!(f, " {}", left)?;
+                        next = right.clone();
+                    } else {
+                        write!(f, " . {}", next)?;
+                        break;
+                    }
+                }
+
+                write!(f, ")")
+            },
             _ => fmt::Debug::fmt(self, f)
         }
     }
@@ -89,8 +135,25 @@ impl fmt::Debug for Value {
             Boolean(b) => write!(f, "{:?}", b),
             Symbol(s) => write!(f, "{}", s),
             Sexpr(e) => write!(f, "{}", Expr::Sexpr(e.to_vec())),
-            List(values) => write!(f, "[{}]",
-                                   values.iter().map(|v| format!("{:?}", v)).join(" ")),
+            Cons(left, right) => {
+                write!(f, "({:?}", left)?;
+
+                let mut next = right.clone();
+
+                loop {
+                    if let Value::Nil = next.clone().deref() {
+                        break;
+                    } else if let Value::Cons(left, right) = next.clone().deref() {
+                        write!(f, " {:?}", left)?;
+                        next = right.clone();
+                    } else {
+                        write!(f, " . {:?}", next)?;
+                        break;
+                    }
+                }
+
+                write!(f, ")")
+            },
             Nil => write!(f, "nil"),
             Function(func) => write!(f, "<function {}>", func.name),
             NativeFunction(name, _) => write!(f, "<function {}>", name),

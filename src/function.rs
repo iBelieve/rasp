@@ -113,7 +113,7 @@ impl Params {
         }
 
         if let Some(ref rest_param) = self.rest_param {
-            scope.set_value(rest_param.clone(), Value::List(Rc::new(rest_args)));
+            scope.set_value(rest_param.clone(), Value::list(rest_args.into_iter()));
         }
 
         for (name, expr) in &self.keyword_params {

@@ -24,9 +24,22 @@ fn plus(args: Vec<Value>) -> Value {
         .expect("Expected at least one argument")
 }
 
+fn list(args: Vec<Value>) -> Value {
+    Value::list(args.into_iter())
+}
+
+fn append(args: Vec<Value>) -> Value {
+    Value::list_rc(args.into_iter()
+                   .flat_map(|value| value.flatten_list()))
+}
+
 pub fn register(scope: &mut HashMap<String, Value>) {
     scope.insert("println".to_string(),
                  Value::NativeFunction("println".to_string(), println));
+    scope.insert("list".to_string(),
+                 Value::NativeFunction("list".to_string(), list));
+    scope.insert("append".to_string(),
+                 Value::NativeFunction("append".to_string(), append));
     scope.insert("+".to_string(),
                  Value::NativeFunction("plus".to_string(), plus));
 }

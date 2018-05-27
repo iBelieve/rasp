@@ -1,6 +1,7 @@
 use nom::{Needed, recognize_float, digit};
 use nom::types::CompleteStr;
 use expr::Expr;
+use template::Template;
 
 named!(float<CompleteStr, f64>,
        flat_map!(call!(recognize_float), parse_to!(f64)));
@@ -53,13 +54,50 @@ named!(sexpr<CompleteStr, Vec<Expr>>,
 
 named!(quote<CompleteStr, Expr>, preceded!(char!('\''), expr));
 
+named!(backquote<CompleteStr, Template>, preceded!(char!('`'), template));
+
+named!(comma_list<CompleteStr, Template>, do_parse!(
+    char!(',') >>
+        char!('@') >>
+        value: template >>
+        (value)
+));
+
+named!(comma<CompleteStr, Template>, do_parse!(
+    char!(',') >>
+        not!(char!('@')) >>
+        value: template >>
+        (value)
+));
+
+named!(template_sexpr<CompleteStr, Vec<Template>>,
+       ws!(delimited!(char!('('), many0!(template), char!(')'))));
+
+named!(template_quote<CompleteStr, Template>, preceded!(char!('\''), template));
+
+named!(template<CompleteStr, Template>, alt!(
+    integer        => { |i| Template::Integer(i) } |
+    float          => { |f| Template::Float(f) } |
+    string         => { |s| Template::String(s) } |
+    template_sexpr => { |e| Template::Sexpr(e) } |
+    template_quote => { |e| Template::quote(e) } |
+    backquote      => { |e| Template::Template(Box::new(e)) } |
+    comma          => { |e| Template::TemplateExpr(Box::new(e)) } |
+    comma_list     => { |e| Template::TemplateListExpr(Box::new(e)) } |
+    symbol         => { |s| Template::Symbol(s) }
+));
+
+
 named!(expr<CompleteStr, Expr>, alt!(
-    integer => { |i| Expr::Integer(i) } |
-    float   => { |f| Expr::Float(f) } |
-    string  => { |s| Expr::String(s) } |
-    sexpr   => { |e| Expr::Sexpr(e) } |
-    quote   => { |e| Expr::Sexpr(vec![Expr::Symbol("quote".to_string()), e]) } |
-    symbol  => { |s| Expr::Symbol(s) }
+    integer    => { |i| Expr::Integer(i) } |
+    float      => { |f| Expr::Float(f) } |
+    string     => { |s| Expr::String(s) } |
+    sexpr      => { |e| Expr::Sexpr(e) } |
+    quote      => { |e| Expr::quote(e) } |
+    backquote  => { |t: Template| t.compile() } |
+    comma      => { |_| panic!("Comma not inside backquote") } |
+    comma_list => { |_| panic!("Comma not inside backquote") } |
+    symbol     => { |s| Expr::Symbol(s) }
 ));
 
 named!(root<CompleteStr, Vec<Expr>>, ws!(many0!(expr)));
@@ -126,6 +164,22 @@ mod tests {
                                              Expr::Sexpr(vec![Expr::Symbol("+".to_string()),
                                                               Expr::Integer(1),
                                                               Expr::Float(2.3)])])])
+        );
+    }
+
+    #[test]
+    fn parse_template() {
+        println!("{}", parse(r#"`(println ,var)"#).unwrap()[0]);
+        assert_eq!(
+            parse(r#"`(println ,var)"#),
+            Result::Ok(vec![Expr::Sexpr(
+                vec![Expr::symbol("append"),
+                     Expr::Sexpr(vec![Expr::symbol("list"),
+                                      Expr::quote(Expr::symbol("println"))]),
+                     Expr::Sexpr(vec![Expr::symbol("list"),
+                                      Expr::symbol("var")]),
+                     Expr::symbol("nil")]
+            )])
         );
     }
 }

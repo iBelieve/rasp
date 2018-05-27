@@ -85,6 +85,14 @@ impl Expr {
         sexpr.extend(expressions);
         Expr::Sexpr(sexpr)
     }
+
+    pub fn quote(expr: Expr) -> Expr {
+        Expr::Sexpr(vec![Expr::Symbol("quote".to_string()), expr])
+    }
+
+    pub fn symbol(symbol: &str) -> Expr {
+        Expr::Symbol(symbol.to_string())
+    }
 }
 
 impl fmt::Display for Expr {
@@ -98,8 +106,13 @@ impl fmt::Display for Expr {
             Boolean(b) => write!(f, "{:?}", b),
             Symbol(s) => write!(f, "{}", s),
             Sexpr(expressions) => {
-                write!(f, "({})", expressions.into_iter()
-                       .map(|e| format!("{}", e)).join(" "))
+                if expressions.len() == 2 && expressions[0] == Expr::Symbol("quote".to_string()) {
+
+                    write!(f, "'{}", expressions[1])
+                } else {
+                    write!(f, "({})", expressions.into_iter()
+                           .map(|e| format!("{}", e)).join(" "))
+                }
             }
         }
     }
