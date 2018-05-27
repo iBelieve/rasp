@@ -221,6 +221,14 @@ impl fmt::Debug for Value {
             Boolean(b) => write!(f, "{:?}", b),
             Symbol(s) => write!(f, "{}", s),
             Cons(left, right) => {
+                if *left.deref() == Value::symbol("quote") {
+                    if let Some(list) = right.as_list() {
+                        if list.len() == 1 {
+                            return write!(f, "'{:?}", list[0]);
+                        }
+                    }
+                }
+
                 write!(f, "({:?}", left)?;
 
                 let mut next = right.clone();

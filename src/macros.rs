@@ -108,6 +108,26 @@ pub fn quote(args: Vec<Rc<Value>>, _scope: Rc<Scope>) -> Value {
     args.into_iter().next().unwrap().deref().clone()
 }
 
+pub fn macroexpand(args: Vec<Rc<Value>>, scope: Rc<Scope>) -> Value {
+    assert!(args.len() == 1, "Expected only one argument");
+
+    let arg = &args[0];
+
+    if let Value::Cons(name, args) = arg.deref() {
+        if let Value::Symbol(name) = name.deref() {
+            if let Value::Macro(func) = scope.get_value(name) {
+                let args = args.clone().iter_cons()
+                    .map(|v| v.deref().clone())
+                    .collect();
+
+                return func.call(args);
+            }
+        }
+    }
+
+    arg.deref().clone()
+}
+
 pub fn register(scope: &mut HashMap<String, Value>) {
     scope.insert("set".to_string(),
                  Value::NativeMacro("set".to_string(), set));
@@ -123,4 +143,6 @@ pub fn register(scope: &mut HashMap<String, Value>) {
                  Value::NativeMacro("progn".to_string(), progn));
     scope.insert("quote".to_string(),
                  Value::NativeMacro("quote".to_string(), quote));
+    scope.insert("macroexpand".to_string(),
+                 Value::NativeMacro("macroexpand".to_string(), macroexpand));
 }

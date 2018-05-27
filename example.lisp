@@ -47,3 +47,5 @@
 	 (println "Assert failed: {} != {} ({} != {})" ',left ',right ,left ,right))))
 
 (assert-eq var 10)
+
+(println "{:?}" (macroexpand (assert-eq var 10)))
