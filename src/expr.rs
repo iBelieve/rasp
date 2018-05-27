@@ -1,6 +1,4 @@
-use std::rc::Rc;
 use std::fmt;
-use scope::Scope;
 use value::Value;
 use itertools::Itertools;
 
@@ -63,21 +61,15 @@ impl Expr {
         }
     }
 
-    pub fn eval(self, scope: Rc<Scope>) -> Value {
+    pub fn into_value(self) -> Value {
         match self {
             Expr::Integer(i) => Value::Integer(i),
             Expr::Float(f) => Value::Float(f),
             Expr::Boolean(b) => Value::Boolean(b),
             Expr::String(s) => Value::String(s),
-            Expr::Symbol(sym) => scope.get_value(&sym),
-            Expr::Sexpr(expressions) => {
-                let mut iter = expressions
-                    .into_iter();
-                let first = iter.next()
-                    .map(|e| e.eval(scope.clone()))
-                    .expect("Expected at least one symbol or value in sexpr");
-
-                first.call(iter.collect(), scope)
+            Expr::Symbol(sym) => Value::Symbol(sym),
+            Expr::Sexpr(exprs) => {
+                Value::list(exprs.into_iter().map(|e| e.into_value()))
             },
             Expr::TemplateExpr(_) | Expr::TemplateListExpr(_) => {
                 panic!("Comma not inside backquote");

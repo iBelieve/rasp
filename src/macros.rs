@@ -1,74 +1,64 @@
 use std::rc::Rc;
+use std::ops::Deref;
 use std::collections::HashMap;
 use itertools::Itertools;
-use expr::Expr;
 use value::Value;
 use scope::Scope;
 use function::Function;
 
-fn progn(args: Vec<Expr>, scope: Rc<Scope>) -> Value {
+fn progn(args: Vec<Rc<Value>>, scope: Rc<Scope>) -> Value {
     args.into_iter()
-        .map(|e| e.eval(scope.clone()))
+        .map(|e| e.eval(&scope))
         .last()
         .unwrap_or(Value::Nil)
 }
 
-fn set(args: Vec<Expr>, scope: Rc<Scope>) -> Value {
+fn set(args: Vec<Rc<Value>>, scope: Rc<Scope>) -> Value {
     if args.len() % 2 != 0 {
         panic!("Uneven symbol and value pairs");
     }
 
     for (symbol, value) in args.into_iter().tuples() {
-        scope.clone().set_value(symbol.as_symbol().expect("Expected symbol"),
-                                value.eval(scope.clone()));
+        scope.set_value(symbol.as_symbol().expect("Expected symbol").to_string(),
+                                value.eval(&scope));
     }
 
     Value::Nil
 }
 
-fn let_block(args: Vec<Expr>, parent_scope: Rc<Scope>) -> Value {
+fn let_block(args: Vec<Rc<Value>>, parent_scope: Rc<Scope>) -> Value {
     let scope = parent_scope.clone().push();
 
     let mut iter = args.into_iter();
     let vars = iter.next()
-        .and_then(|e| e.as_sexpr())
-        .expect("Expected variables list");
+        .expect("Expected variables list")
+        .iter_cons();
 
     for var in vars {
-        match var {
-            Expr::Symbol(sym) => {
-                scope.set_value(sym, Value::Nil)
-            },
-            Expr::Sexpr(var_val) => {
-                assert!(var_val.len() == 2,
-                        "Expected symbol or symbol and value pair");
-
-                let mut iter = var_val.into_iter();
-                let symbol = iter.next().unwrap().as_symbol()
-                    .expect("Expected symbol and value pair");
-                let value = iter.next().unwrap();
-
-                scope.clone().set_value(symbol, value.eval(parent_scope.clone()));
-            },
-            _ => {
-                panic!("Expected symbol or symbol and value pair");
-            }
+        if let Value::Symbol(sym) = var.deref() {
+            scope.set_value(sym.to_string(), Value::Nil)
+        } else if let Some((symbol, value)) = var.as_symbol_value_pair() {
+            scope.clone().set_value(symbol.to_string(),
+                                    value.eval(&parent_scope));
+        } else {
+            panic!("Expected symbol or symbol and value pair");
         }
     }
 
-    iter.map(|e| e.eval(scope.clone()))
+    iter.map(|e| e.eval(&scope))
         .last()
         .unwrap_or(Value::Nil)
 }
 
-pub fn defun(args: Vec<Expr>, parent_scope: Rc<Scope>) -> Value {
+pub fn defun(args: Vec<Rc<Value>>, parent_scope: Rc<Scope>) -> Value {
     let mut iter = args.into_iter();
     let name = iter.next()
-        .and_then(|e| e.as_symbol())
+        .and_then(|e| e.as_symbol().map(|s| s.to_string()))
         .expect("Expected function name");
     let params = iter.next().expect("Expected parameter definitions");
 
-    let function = Function::define(name.clone(), params, iter.collect(),
+    let function = Function::define(name.clone(), &params,
+                                    Rc::new(Value::list_rc(iter)),
                                     parent_scope.clone());
 
     parent_scope.set_value(name, Value::Function(Rc::new(function)));
@@ -76,18 +66,10 @@ pub fn defun(args: Vec<Expr>, parent_scope: Rc<Scope>) -> Value {
     Value::Nil
 }
 
-pub fn quote(args: Vec<Expr>, scope: Rc<Scope>) -> Value {
+pub fn quote(args: Vec<Rc<Value>>, _scope: Rc<Scope>) -> Value {
     assert!(args.len() == 1, "Expected only one argument");
 
-    let expr = args.into_iter().next().unwrap();
-
-    if let Expr::Symbol(s) = expr {
-        Value::Symbol(s)
-    } else if let Expr::Sexpr(s) = expr {
-        Value::Sexpr(Rc::new(s))
-    } else {
-        expr.eval(scope)
-    }
+    args.into_iter().next().unwrap().deref().clone()
 }
 
 pub fn register(scope: &mut HashMap<String, Value>) {

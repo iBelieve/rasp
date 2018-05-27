@@ -30,7 +30,7 @@ fn list(args: Vec<Value>) -> Value {
 
 fn append(args: Vec<Value>) -> Value {
     Value::list_rc(args.into_iter()
-                   .flat_map(|value| value.flatten_list()))
+                   .flat_map(|value| value.as_list().expect("Not a proper list")))
 }
 
 pub fn register(scope: &mut HashMap<String, Value>) {

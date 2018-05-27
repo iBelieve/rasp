@@ -1,4 +1,3 @@
-use expr::Expr;
 use scope::Scope;
 use std::ops::Add;
 use std::rc::Rc;
@@ -13,27 +12,63 @@ pub enum Value {
     Boolean(bool),
     String(String),
     NativeFunction(String, fn(Vec<Value>) -> Value),
-    NativeMacro(String, fn(Vec<Expr>, Rc<Scope>) -> Value),
+    NativeMacro(String, fn(Vec<Rc<Value>>, Rc<Scope>) -> Value),
     Function(Rc<Function>),
     Symbol(String),
-    Sexpr(Rc<Vec<Expr>>),
     Cons(Rc<Value>, Rc<Value>),
     Nil
 }
 
 impl Value {
-    pub fn flatten_list(&self) -> Vec<Rc<Value>> {
+    pub fn as_list(&self) -> Option<Vec<Rc<Value>>> {
         if let Value::Nil = self {
-            Vec::new()
+            Some(Vec::new())
         } else if let Value::Cons(left, right) = self {
             let mut list = vec![left.clone()];
-            list.extend(right.flatten_list());
-            list
+            list.extend(right.as_list()?);
+            Some(list)
         } else {
-            panic!("Not a valid list");
+            None
         }
     }
 
+    pub fn iter_cons(self: Rc<Self>) -> ConsIter {
+        ConsIter::from_cons(self)
+    }
+
+    pub fn as_symbol(&self) -> Option<&str> {
+        if let Value::Symbol(sym) = self {
+            Some(sym)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_pair(&self) -> Option<(Rc<Value>, Rc<Value>)> {
+        if let Value::Cons(left, right) = self.deref() {
+            if let Value::Cons(right, nil) = right.deref() {
+                if let Value::Nil = nil.deref() {
+                    return Some((left.clone(), right.clone()));
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn as_symbol_value_pair(&self) -> Option<(&str, Rc<Value>)> {
+        if let Value::Cons(left, right) = self {
+            if let Value::Cons(right, nil) = right.deref() {
+                if let Value::Nil = nil.deref() {
+                    if let Value::Symbol(symbol) = left.deref() {
+                        return Some((&symbol, right.clone()));
+                    }
+                }
+            }
+        }
+
+        None
+    }
 
     pub fn as_string(self) -> String {
         match self {
@@ -42,33 +77,57 @@ impl Value {
         }
     }
 
-    pub fn as_keyword_symbol(&self) -> Option<String> {
+    pub fn as_keyword_symbol(&self) -> Option<&str> {
         if let Value::Symbol(sym) = self {
             if sym.starts_with(":") {
-                return Some(sym[1..].to_string());
+                return Some(&sym[1..]);
             }
         }
 
         None
     }
 
-    pub fn call(self, args: Vec<Expr>, scope: Rc<Scope>) -> Value {
+    pub fn progn(body: impl Into<Rc<Value>>) -> Value {
+        Value::Cons(Rc::new(Value::symbol("progn")),
+                    body.into())
+    }
+
+    pub fn symbol(symbol: &str) -> Value {
+        Value::Symbol(symbol.to_string())
+    }
+
+
+    pub fn eval(&self, scope: &Rc<Scope>) -> Value {
+        match self {
+            Value::Symbol(sym) => scope.get_value(sym),
+            Value::Cons(left, params) => {
+                let left = left.eval(scope);
+
+                left.call(params.clone(), scope)
+            },
+            _ => self.clone()
+        }
+    }
+
+
+    pub fn call(&self, args: Rc<Value>, scope: &Rc<Scope>) -> Value {
         use self::Value::*;
 
         match self {
             Nil => panic!("Cannot call nil function"),
             NativeFunction(_name, func) => {
-                let args = args.into_iter()
-                    .map(|e| e.eval(scope.clone()))
+                let args = args.iter_cons()
+                    .map(|e| e.eval(&scope))
                     .collect();
                 func(args)
             },
             NativeMacro(_name, func) => {
-                func(args, scope)
+                func(args.as_list().expect("Unable to evaluate improper list"),
+                     scope.clone())
             },
             Function(func) => {
-                let args = args.into_iter()
-                    .map(|e| e.eval(scope.clone()))
+                let args = args.iter_cons()
+                    .map(|e| e.eval(scope))
                     .collect();
                 func.call(args)
             }
@@ -93,6 +152,18 @@ impl Value {
     }
 }
 
+impl From<Vec<Rc<Value>>> for Value {
+    fn from(list: Vec<Rc<Value>>) -> Self {
+        Value::list_rc(list.into_iter())
+    }
+}
+
+impl From<Vec<Value>> for Value {
+    fn from(list: Vec<Value>) -> Self {
+        Value::list(list.into_iter())
+    }
+}
+
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Value::*;
@@ -102,6 +173,14 @@ impl fmt::Display for Value {
             String(s) => write!(f, "{}", s),
             Boolean(b) => write!(f, "{}", b),
             Cons(left, right) => {
+                if *left.deref() == Value::symbol("quote") {
+                    if let Some(list) = right.as_list() {
+                        if list.len() == 1 {
+                            return write!(f, "'{}", list[0]);
+                        }
+                    }
+                }
+
                 write!(f, "({}", left)?;
 
                 let mut next = right.clone();
@@ -134,7 +213,6 @@ impl fmt::Debug for Value {
             String(s) => write!(f, "{:?}", s),
             Boolean(b) => write!(f, "{:?}", b),
             Symbol(s) => write!(f, "{}", s),
-            Sexpr(e) => write!(f, "{}", Expr::Sexpr(e.to_vec())),
             Cons(left, right) => {
                 write!(f, "({:?}", left)?;
 
@@ -191,5 +269,51 @@ impl<T, I> Reduce<T> for I where I: Iterator<Item=T> {
               F: FnMut(T, T) -> T,
     {
         self.next().map(|first| self.fold(first, f))
+    }
+}
+
+pub struct ConsIter {
+    cons: Option<Rc<Value>>
+}
+
+impl ConsIter {
+    fn from_cons(value: Rc<Value>) -> Self {
+        if let Value::Cons(_, _) = value.deref() {
+            ConsIter { cons: Some(value) }
+        } else if let Value::Nil = value.deref() {
+            ConsIter { cons: None }
+        } else {
+            panic!("Not a list");
+        }
+    }
+}
+
+impl Iterator for ConsIter {
+    type Item = Rc<Value>;
+
+    // next() is the only required method
+    fn next(&mut self) -> Option<Rc<Value>> {
+        if let Some(cons) = self.cons.take() {
+            if let Value::Cons(left, right) = cons.deref() {
+                match right.deref() {
+                    Value::Cons(_, _) => {
+                        self.cons = Some(right.clone());
+                        Some(left.clone())
+                    },
+                    Value::Nil => {
+                        self.cons = None;
+                        Some(left.clone())
+                    },
+                    _ => {
+                        self.cons = None;
+                        Some(cons.clone())
+                    }
+                }
+            } else {
+                unreachable!("Should only be iterating cons");
+            }
+        } else {
+            None
+        }
     }
 }

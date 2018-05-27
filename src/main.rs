@@ -4,7 +4,7 @@ use std::env;
 use std::io;
 use std::io::prelude::*;
 use std::fs::File;
-use rasp::parse_and_eval;
+use rasp::read_and_eval;
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -16,12 +16,12 @@ fn main() {
             let mut contents = String::new();
             file.read_to_string(&mut contents)
                 .expect("Unable to read file");
-            parse_and_eval(&contents);
+            read_and_eval(&contents);
         }
     } else {
         let mut buffer = String::new();
         io::stdin().read_to_string(&mut buffer)
             .expect("Unable to read input from stdin");
-        parse_and_eval(&buffer);
+        read_and_eval(&buffer);
     }
 }
